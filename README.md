@@ -1,2 +1,2 @@
 # HotelBooking_Clean_Async
- Async version of HotelBooking_Clean
+ Solution to part 1 assignment,HotelBooking_Clean_Async (Software Quality) 
