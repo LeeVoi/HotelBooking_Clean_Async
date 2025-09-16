@@ -14,7 +14,7 @@ namespace HotelBooking.UnitTests
         public async Task CreateBooking_RoomAvailable_SetsRoom_IsActive_PersistsAndReturnsTrue()
         {
             // Arrange
-            var start = DateTime.Today.AddDays(2);
+            var start = DateTime.Today.AddDays(2); 
             var end   = DateTime.Today.AddDays(3);
 
             var booking = new Booking
@@ -27,19 +27,20 @@ namespace HotelBooking.UnitTests
             var bookingRepo = new Mock<IRepository<Booking>>(MockBehavior.Strict);
             var roomRepo    = new Mock<IRepository<Room>>(MockBehavior.Strict);
 
+            // Here whenever the BookingManager akes for all bookings, we return an empty list
             // No conflicting bookings
             bookingRepo.Setup(r => r.GetAllAsync())
                     .ReturnsAsync(new List<Booking>());
 
-            // Provide rooms (at least 1)
+            // Provide at least one available room (roomId = 1)
             roomRepo.Setup(r => r.GetAllAsync())
                     .ReturnsAsync(new List<Room> { new Room { Id = 1 } });
 
-            // Expect AddAsync called with the *mutated* instance
+            // Expect AddAsync called with the *mutated* instance of the booking
             bookingRepo.Setup(r => r.AddAsync(It.Is<Booking>(b =>
                     ReferenceEquals(b, booking) &&
                     b.IsActive == true &&
-                    b.RoomId   >= 0 &&
+                    b.RoomId   == 1 &&
                     b.StartDate == start &&
                     b.EndDate   == end
                 )))
@@ -57,9 +58,14 @@ namespace HotelBooking.UnitTests
             Assert.True(booking.RoomId >= 0);
 
             // Explicitly verify expected calls:
-            bookingRepo.Verify(r => r.GetAllAsync(), Times.AtLeastOnce());
+            roomRepo.Verify(r => r.GetAllAsync(), Times.Once());
+            bookingRepo.Verify(r => r.GetAllAsync(), Times.Once());
             bookingRepo.Verify(r => r.AddAsync(It.IsAny<Booking>()), Times.Once);
-            roomRepo.Verify(r => r.GetAllAsync(), Times.AtLeastOnce());
+            
+
+            // Assert no other calls should have been made
+            bookingRepo.VerifyNoOtherCalls();
+            roomRepo.VerifyNoOtherCalls();
         }
 
         [Fact]
@@ -74,17 +80,18 @@ namespace HotelBooking.UnitTests
             var bookingRepo = new Mock<IRepository<Booking>>(MockBehavior.Strict);
             var roomRepo    = new Mock<IRepository<Room>>(MockBehavior.Strict);
 
-            // Provide rooms that are all "taken" by a conflicting booking,
-            // or simply provide zero rooms. Here’s the minimal approach:
+
+            // Provide no available rooms
             roomRepo.Setup(r => r.GetAllAsync())
                     .ReturnsAsync(new List<Room>()); // no rooms available
+
 
             // Service may check existing bookings:
             bookingRepo.Setup(r => r.GetAllAsync())
                     .ReturnsAsync(new List<Booking>());
 
             // Expect: AddAsync should NOT be called
-            // (no setup for AddAsync; we'll verify Times.Never)
+            // (no setup for AddAsync; we verify Times.Never later)
 
             var sut = new BookingManager(bookingRepo.Object, roomRepo.Object);
 
@@ -94,11 +101,15 @@ namespace HotelBooking.UnitTests
             // Assert
             Assert.False(result);
             Assert.False(booking.IsActive);    // should not be toggled true
-            Assert.True(booking.RoomId == 0 || booking.RoomId < 0); // unchanged/default
+            Assert.True(booking.RoomId == 0); // unchanged/default
 
-            bookingRepo.Verify(r => r.GetAllAsync(), Times.AtLeastOnce());
-            bookingRepo.Verify(r => r.AddAsync(It.IsAny<Booking>()), Times.Never);
-            roomRepo.Verify(r => r.GetAllAsync(), Times.AtLeastOnce());
+            roomRepo.Verify(r => r.GetAllAsync(), Times.Once());
+            bookingRepo.Verify(r => r.GetAllAsync(), Times.Once());
+            bookingRepo.Verify(r => r.AddAsync(It.IsAny<Booking>()), Times.Never); // Verify AddAsync was never called
+
+            // Assert no other calls should have been made
+            bookingRepo.VerifyNoOtherCalls();
+            roomRepo.VerifyNoOtherCalls();
         }
     }
 }
