@@ -194,6 +194,7 @@ namespace HotelBooking.UnitTests
             
             var bookingRepo = new Mock<IRepository<Booking>>();
             bookingRepo.Setup(r => r.GetAllAsync()).ReturnsAsync(bookings);
+            
             var roomRepo = new Mock<IRepository<Room>>();
             roomRepo.Setup(r => r.GetAllAsync()).ReturnsAsync(rooms);
             
