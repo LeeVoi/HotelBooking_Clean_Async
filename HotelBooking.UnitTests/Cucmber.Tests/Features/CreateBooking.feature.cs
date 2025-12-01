@@ -24,8 +24,8 @@ namespace HotelBooking.UnitTests.Cucmber_Tests.Features
         
         private static string[] featureTags = ((string[])(null));
         
-        private static global::Reqnroll.FeatureInfo featureInfo = new global::Reqnroll.FeatureInfo(new global::System.Globalization.CultureInfo("en-US"), "Cucmber.Tests/Features", "Create Booking", "    In order to prevent overlapping room reservations\r\n    As a hotel booking sys" +
-                "tem\r\n    I want to only allow bookings that do not overlap with occupied dates", global::Reqnroll.ProgrammingLanguage.CSharp, featureTags, InitializeCucumberMessages());
+        private static global::Reqnroll.FeatureInfo featureInfo = new global::Reqnroll.FeatureInfo(new global::System.Globalization.CultureInfo("en-US"), "Cucmber.Tests/Features", "Create Booking", "    In order to prevent overlapping room reservations\n    As a hotel booking syst" +
+                "em\n    I want to only allow bookings that do not overlap with occupied dates", global::Reqnroll.ProgrammingLanguage.CSharp, featureTags, InitializeCucumberMessages());
         
         private global::Xunit.Abstractions.ITestOutputHelper _testOutputHelper;
         

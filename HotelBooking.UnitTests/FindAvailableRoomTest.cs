@@ -124,6 +124,201 @@ namespace HotelBooking.UnitTests
             bookingRepo.Verify(r => r.GetAllAsync(), Times.Never());
             roomRepo.Verify(r => r.GetAllAsync(), Times.Never());
         }
+        [Fact]
+        public async Task FindAvailableRoom_NoRooms_ReturnsMinusOne()
+        {
+            // Arrange
+            var start = DateTime.Today.AddDays(2);
+            var end = DateTime.Today.AddDays(3);
+            var bookingRepo = new Mock<IRepository<Booking>>(MockBehavior.Strict);
+            var roomRepo = new Mock<IRepository<Room>>(MockBehavior.Strict);
+            bookingRepo.Setup(r => r.GetAllAsync()).ReturnsAsync(new List<Booking>());
+            roomRepo.Setup(r => r.GetAllAsync()).ReturnsAsync(new List<Room>());
+            var sut = new BookingManager(bookingRepo.Object, roomRepo.Object);
+
+            // Act
+            var result = await sut.FindAvailableRoom(start, end);
+
+            // Assert
+            Assert.Equal(-1, result);
+        }
+        [Fact]
+        public async Task FindAvailableRoom_RoomWithInactiveBooking_ReturnsRoomId()
+        {
+            // Arrange
+            var start = DateTime.Today.AddDays(2);
+            var end = DateTime.Today.AddDays(3);
+            var bookingRepo = new Mock<IRepository<Booking>>(MockBehavior.Strict);
+            var roomRepo = new Mock<IRepository<Room>>(MockBehavior.Strict);
+            bookingRepo.Setup(r => r.GetAllAsync()).ReturnsAsync(new List<Booking> {
+                new Booking {
+                    RoomId = 1,
+                    StartDate = start,
+                    EndDate = end,
+                    IsActive = false
+                }
+            });
+            roomRepo.Setup(r => r.GetAllAsync()).ReturnsAsync(new List<Room> { new Room { Id = 1 } });
+            var sut = new BookingManager(bookingRepo.Object, roomRepo.Object);
+
+            // Act
+            var result = await sut.FindAvailableRoom(start, end);
+
+            // Assert
+            Assert.Equal(1, result);
+        }
+        [Fact]
+        public async Task FindAvailableRoom_RoomWithNonOverlappingBooking_ReturnsRoomId()
+        {
+            // Arrange
+            var start = DateTime.Today.AddDays(5);
+            var end = DateTime.Today.AddDays(6);
+            var bookingRepo = new Mock<IRepository<Booking>>(MockBehavior.Strict);
+            var roomRepo = new Mock<IRepository<Room>>(MockBehavior.Strict);
+            bookingRepo.Setup(r => r.GetAllAsync()).ReturnsAsync(new List<Booking> {
+                new Booking {
+                    RoomId = 1,
+                    StartDate = DateTime.Today.AddDays(1),
+                    EndDate = DateTime.Today.AddDays(2),
+                    IsActive = true
+                }
+            });
+            roomRepo.Setup(r => r.GetAllAsync()).ReturnsAsync(new List<Room> { new Room { Id = 1 } });
+            var sut = new BookingManager(bookingRepo.Object, roomRepo.Object);
+
+            // Act
+            var result = await sut.FindAvailableRoom(start, end);
+
+            // Assert
+            Assert.Equal(1, result);
+        }
+        [Fact]
+        public async Task FindAvailableRoom_MultipleRooms_FirstAvailableReturned()
+        {
+            // Arrange
+            var start = DateTime.Today.AddDays(2);
+            var end = DateTime.Today.AddDays(3);
+            var bookingRepo = new Mock<IRepository<Booking>>(MockBehavior.Strict);
+            var roomRepo = new Mock<IRepository<Room>>(MockBehavior.Strict);
+            bookingRepo.Setup(r => r.GetAllAsync()).ReturnsAsync(new List<Booking> {
+                new Booking {
+                    RoomId = 2,
+                    StartDate = start,
+                    EndDate = end,
+                    IsActive = true
+                }
+            });
+            roomRepo.Setup(r => r.GetAllAsync()).ReturnsAsync(new List<Room> {
+                new Room { Id = 1 },
+                new Room { Id = 2 }
+            });
+            var sut = new BookingManager(bookingRepo.Object, roomRepo.Object);
+
+            // Act
+            var result = await sut.FindAvailableRoom(start, end);
+
+            // Assert
+            Assert.Equal(1, result);
+        }
+        [Fact]
+        public async Task FindAvailableRoom_BookingEndsDayBeforeStart_DoesNotBlock()
+        {
+            // Arrange
+            var start = DateTime.Today.AddDays(5);
+            var end = DateTime.Today.AddDays(6);
+            var bookingRepo = new Mock<IRepository<Booking>>(MockBehavior.Strict);
+            var roomRepo = new Mock<IRepository<Room>>(MockBehavior.Strict);
+            bookingRepo.Setup(r => r.GetAllAsync()).ReturnsAsync(new List<Booking> {
+                new Booking {
+                    RoomId = 1,
+                    StartDate = DateTime.Today.AddDays(1),
+                    EndDate = start.AddDays(-1),
+                    IsActive = true
+                }
+            });
+            roomRepo.Setup(r => r.GetAllAsync()).ReturnsAsync(new List<Room> { new Room { Id = 1 } });
+            var sut = new BookingManager(bookingRepo.Object, roomRepo.Object);
+
+            // Act
+            var result = await sut.FindAvailableRoom(start, end);
+
+            // Assert
+            Assert.Equal(1, result);
+        }
+        [Fact]
+        public async Task FindAvailableRoom_BookingStartsDayAfterEnd_DoesNotBlock()
+        {
+            // Arrange
+            var start = DateTime.Today.AddDays(5);
+            var end = DateTime.Today.AddDays(6);
+            var bookingRepo = new Mock<IRepository<Booking>>(MockBehavior.Strict);
+            var roomRepo = new Mock<IRepository<Room>>(MockBehavior.Strict);
+            bookingRepo.Setup(r => r.GetAllAsync()).ReturnsAsync(new List<Booking> {
+                new Booking {
+                    RoomId = 1,
+                    StartDate = end.AddDays(1),
+                    EndDate = end.AddDays(2),
+                    IsActive = true
+                }
+            });
+            roomRepo.Setup(r => r.GetAllAsync()).ReturnsAsync(new List<Room> { new Room { Id = 1 } });
+            var sut = new BookingManager(bookingRepo.Object, roomRepo.Object);
+
+            // Act
+            var result = await sut.FindAvailableRoom(start, end);
+
+            // Assert
+            Assert.Equal(1, result);
+        }
+        [Fact]
+        public async Task FindAvailableRoom_BookingExactlyMatchesRange_BlocksRoom()
+        {
+            // Arrange
+            var start = DateTime.Today.AddDays(5);
+            var end = DateTime.Today.AddDays(6);
+            var bookingRepo = new Mock<IRepository<Booking>>(MockBehavior.Strict);
+            var roomRepo = new Mock<IRepository<Room>>(MockBehavior.Strict);
+            bookingRepo.Setup(r => r.GetAllAsync()).ReturnsAsync(new List<Booking> {
+                new Booking {
+                    RoomId = 1,
+                    StartDate = start,
+                    EndDate = end,
+                    IsActive = true
+                }
+            });
+            roomRepo.Setup(r => r.GetAllAsync()).ReturnsAsync(new List<Room> { new Room { Id = 1 } });
+            var sut = new BookingManager(bookingRepo.Object, roomRepo.Object);
+
+            // Act
+            var result = await sut.FindAvailableRoom(start, end);
+
+            // Assert
+            Assert.Equal(-1, result);
+        }
+        [Fact]
+        public async Task FindAvailableRoom_BookingPartiallyOverlapsRange_BlocksRoom()
+        {
+            // Arrange
+            var start = DateTime.Today.AddDays(5);
+            var end = DateTime.Today.AddDays(6);
+            var bookingRepo = new Mock<IRepository<Booking>>(MockBehavior.Strict);
+            var roomRepo = new Mock<IRepository<Room>>(MockBehavior.Strict);
+            bookingRepo.Setup(r => r.GetAllAsync()).ReturnsAsync(new List<Booking> {
+                new Booking {
+                    RoomId = 1,
+                    StartDate = start.AddDays(-1),
+                    EndDate = end.AddDays(-1),
+                    IsActive = true
+                }
+            });
+            roomRepo.Setup(r => r.GetAllAsync()).ReturnsAsync(new List<Room> { new Room { Id = 1 } });
+            var sut = new BookingManager(bookingRepo.Object, roomRepo.Object);
+
+            // Act
+            var result = await sut.FindAvailableRoom(start, end);
+
+            // Assert
+            Assert.Equal(-1, result);
+        }
     }
 }
-

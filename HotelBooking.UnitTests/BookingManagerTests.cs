@@ -210,6 +210,124 @@ namespace HotelBooking.UnitTests
             Assert.Contains(end.AddDays(-5), result);
 
         }
+        
+        [Fact]
+        public async Task GetFullyOccupiedDates_NoRooms_ReturnsEmptyList()
+        {
+            DateTime start = DateTime.Today;
+            DateTime end = DateTime.Today.AddDays(2);
+            var bookingRepo = new Mock<IRepository<Booking>>();
+            bookingRepo.Setup(r => r.GetAllAsync()).ReturnsAsync(new List<Booking>());
+            var roomRepo = new Mock<IRepository<Room>>();
+            roomRepo.Setup(r => r.GetAllAsync()).ReturnsAsync(new List<Room>());
+            var manager = new BookingManager(bookingRepo.Object, roomRepo.Object);
+            var result = await manager.GetFullyOccupiedDates(start, end);
+            Assert.Empty(result);
+        }
+        [Fact]
+        public async Task GetFullyOccupiedDates_InactiveBookings_Ignored()
+        {
+            DateTime start = DateTime.Today;
+            DateTime end = DateTime.Today.AddDays(2);
+            var bookings = new List<Booking> {
+                new Booking { StartDate = start, EndDate = end, IsActive = false, RoomId = 1 }
+            };
+            var rooms = new List<Room> { new Room { Id = 1 } };
+            var bookingRepo = new Mock<IRepository<Booking>>();
+            bookingRepo.Setup(r => r.GetAllAsync()).ReturnsAsync(bookings);
+            var roomRepo = new Mock<IRepository<Room>>();
+            roomRepo.Setup(r => r.GetAllAsync()).ReturnsAsync(rooms);
+            var manager = new BookingManager(bookingRepo.Object, roomRepo.Object);
+            var result = await manager.GetFullyOccupiedDates(start, end);
+            Assert.Empty(result);
+        }
+        [Fact]
+        public async Task GetFullyOccupiedDates_BookingsDoNotOverlapDates_ReturnsEmptyList()
+        {
+            DateTime start = DateTime.Today;
+            DateTime end = DateTime.Today.AddDays(2);
+            var bookings = new List<Booking> {
+                new Booking { StartDate = start.AddDays(-5), EndDate = start.AddDays(-3), IsActive = true, RoomId = 1 }
+            };
+            var rooms = new List<Room> { new Room { Id = 1 } };
+            var bookingRepo = new Mock<IRepository<Booking>>();
+            bookingRepo.Setup(r => r.GetAllAsync()).ReturnsAsync(bookings);
+            var roomRepo = new Mock<IRepository<Room>>();
+            roomRepo.Setup(r => r.GetAllAsync()).ReturnsAsync(rooms);
+            var manager = new BookingManager(bookingRepo.Object, roomRepo.Object);
+            var result = await manager.GetFullyOccupiedDates(start, end);
+            Assert.Empty(result);
+        }
+        [Fact]
+        public async Task GetFullyOccupiedDates_BookingsOnDateBoundaries_AreCounted()
+        {
+            DateTime start = DateTime.Today;
+            DateTime end = DateTime.Today.AddDays(2);
+            var bookings = new List<Booking> {
+                new Booking { StartDate = start, EndDate = start, IsActive = true, RoomId = 1 },
+                new Booking { StartDate = end, EndDate = end, IsActive = true, RoomId = 1 }
+            };
+            var rooms = new List<Room> { new Room { Id = 1 } };
+            var bookingRepo = new Mock<IRepository<Booking>>();
+            bookingRepo.Setup(r => r.GetAllAsync()).ReturnsAsync(bookings);
+            var roomRepo = new Mock<IRepository<Room>>();
+            roomRepo.Setup(r => r.GetAllAsync()).ReturnsAsync(rooms);
+            var manager = new BookingManager(bookingRepo.Object, roomRepo.Object);
+            var result = await manager.GetFullyOccupiedDates(start, end);
+            Assert.Contains(start, result);
+            Assert.Contains(end, result);
+        }
+        [Fact]
+        public async Task GetFullyOccupiedDates_OneRoom_OneBooking_CoversAllDates()
+        {
+            DateTime start = DateTime.Today;
+            DateTime end = DateTime.Today.AddDays(2);
+            var bookings = new List<Booking> {
+                new Booking { StartDate = start, EndDate = end, IsActive = true, RoomId = 1 }
+            };
+            var rooms = new List<Room> { new Room { Id = 1 } };
+            var bookingRepo = new Mock<IRepository<Booking>>();
+            bookingRepo.Setup(r => r.GetAllAsync()).ReturnsAsync(bookings);
+            var roomRepo = new Mock<IRepository<Room>>();
+            roomRepo.Setup(r => r.GetAllAsync()).ReturnsAsync(rooms);
+            var manager = new BookingManager(bookingRepo.Object, roomRepo.Object);
+            var result = await manager.GetFullyOccupiedDates(start, end);
+            Assert.Equal(new List<DateTime> { start, start.AddDays(1), end }, result);
+        }
+        [Fact]
+        public async Task GetFullyOccupiedDates_MultipleBookingsSameRoom_OnlyCountsOnce()
+        {
+            DateTime start = DateTime.Today;
+            DateTime end = DateTime.Today.AddDays(2);
+            var bookings = new List<Booking> {
+                new Booking { StartDate = start, EndDate = end, IsActive = true, RoomId = 1 },
+                new Booking { StartDate = start, EndDate = end, IsActive = true, RoomId = 1 }
+            };
+            var rooms = new List<Room> { new Room { Id = 1 } };
+            var bookingRepo = new Mock<IRepository<Booking>>();
+            bookingRepo.Setup(r => r.GetAllAsync()).ReturnsAsync(bookings);
+            var roomRepo = new Mock<IRepository<Room>>();
+            roomRepo.Setup(r => r.GetAllAsync()).ReturnsAsync(rooms);
+            var manager = new BookingManager(bookingRepo.Object, roomRepo.Object);
+            var result = await manager.GetFullyOccupiedDates(start, end);
+            Assert.Equal(new List<DateTime> { start, start.AddDays(1), end }, result);
+        }
+        [Fact]
+        public async Task GetFullyOccupiedDates_SingleDayRange_FullyOccupied()
+        {
+            DateTime day = DateTime.Today;
+            var bookings = new List<Booking> {
+                new Booking { StartDate = day, EndDate = day, IsActive = true, RoomId = 1 }
+            };
+            var rooms = new List<Room> { new Room { Id = 1 } };
+            var bookingRepo = new Mock<IRepository<Booking>>();
+            bookingRepo.Setup(r => r.GetAllAsync()).ReturnsAsync(bookings);
+            var roomRepo = new Mock<IRepository<Room>>();
+            roomRepo.Setup(r => r.GetAllAsync()).ReturnsAsync(rooms);
+            var manager = new BookingManager(bookingRepo.Object, roomRepo.Object);
+            var result = await manager.GetFullyOccupiedDates(day, day);
+            Assert.Equal(new List<DateTime> { day }, result);
+        }
 
     }
 }
